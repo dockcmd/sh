@@ -33,22 +33,23 @@ docker_run() {
 
 # return docker image with any override tag or use tag provided
 docker_image() {
+  IFS='@' read image tag <<< "$1"
+
+  # check for tag override
   f=${DOCKER_IMAGE-~/.docker_image}
   if [ -f $f ]
   then
-    while IFS=':' read image stag || [ "$image" ]
+    while IFS=':' read _image _tag || [ "$_image" ]
     do
-      if [ $1 == "$image" ]; then
-        tag=$stag
+      if [ "$image" == "$_image" ]; then
+        tag=$_tag
         break
       fi
     done < $f
   fi
 
-  # if tag unset, default to $2 or null if $2 is unset
-  tag=${tag-$2}
   # prepend a ':' if $tag set and not null, otherwise leave as null 
-  echo $1${tag:+":$tag"}
+  echo $image${tag:+":$tag"}
 }
 
 # add --user flag if UID is present
@@ -142,27 +143,11 @@ exec_or_dryrun() {
     # dr list in long format unescaped
     for word in "$@"
     do
-      echo $word
+      echo $word \\
     done
   else
     # dryrun set, print command escaped so it can be copied to run
     printf "%q " $@
     echo
   fi
-}
-
-# find file in path or in any subfolder in path
-# usage: find_file <path> <filename>
-find_file() {
-  echo $(
-    IFS=:
-    for p in $1; do
-      f=`find $p -name $2 2>/dev/null`
-      if [ $f ]
-      then
-        echo $f
-        return
-      fi
-    done
-  )
 }

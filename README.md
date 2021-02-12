@@ -2,6 +2,29 @@
 
 Script to be included to add various docker shell script functions.
 
+## Usage
+
+Typical usage with shmod:
+
+```bash
+. shmod
+import dockcmd/sh@v0.0.2 docker.sh
+
+exec_or_dryrun \
+  $(docker_run) \
+  $(docker_workdir) \
+  $(docker_publish) \
+  $(docker_image hello-world) \
+  "$@"
+```
+
+## Hello World
+
+```bash
+dr=l ./hello-world.sh
+dr=l p=80 ./hello-world.sh
+```
+
 ## Test
 
 ```bash
