@@ -1,4 +1,5 @@
-# return docker run command with defaults and overrides for tty, interactive and entrypoint
+# return docker run command with defaults and overrides for 
+# tty, interactive, entrypoint and publish (ports)
 docker_run() {
   if ! [ -z ${ti+0} ] ||  ! [ -z ${it+0} ]
   then
@@ -29,6 +30,22 @@ docker_run() {
 
   # return docker run command with any entrypoint, interactive and tty options
   echo docker run --rm ${ep:+--entrypoint $ep} ${i+--interactive} ${t+--tty}
+
+  # add port publishing
+  IFS=','
+  for port in $p
+  do
+    if [ $port ] 
+    then
+      if [ $port -eq $port ] 2>/dev/null
+      then
+        # $port is an integer
+        echo --publish $port:$port
+      else
+        echo --publish $port
+      fi
+    fi
+  done
 }
 
 # return docker image with any override tag or use tag provided
@@ -113,24 +130,6 @@ docker_home_workdir() {
     echo --mount type=bind,source=$PWD,target=/wd,consistency=delegated
     echo --workdir /wd
   fi
-}
-
-# add port mappings
-docker_publish() {
-  IFS=','
-  for port in $p
-  do
-    if [ $port ] 
-    then
-      if [ $port -eq $port ] 2>/dev/null
-      then
-        # $port is an integer
-        echo --publish $port:$port
-      else
-        echo --publish $port
-      fi
-    fi
-  done
 }
 
 # if dryrun (dr) is not assigned, exec cmd, otherwise print cmd
