@@ -14,6 +14,12 @@ docker() {
 # return docker run command with defaults and overrides for 
 # tty, interactive, entrypoint and publish (ports)
 docker_run() {
+  if [ $1 ]
+  then
+    echo usage: docker_run 1>&2
+    exit 1
+  fi
+
   if ! [ -z ${ti+0} ] ||  ! [ -z ${it+0} ]
   then
     # ti or it set (might be blank), expand to individual variables
@@ -69,6 +75,12 @@ docker_run() {
 
 # return docker image with any override tag or use tag provided
 docker_image() {
+  if [ $# -ne 1 ]
+  then
+    echo usage: image image[:tag] 1>&2
+    exit 1
+  fi
+
   IFS='@' read image tag <<< "$1"
 
   # check for tag override
@@ -91,6 +103,12 @@ docker_image() {
 
 # add --user flag if UID is present
 docker_user() {
+  if [ $1 ]
+  then
+    echo usage: docker_user 1>&2
+    exit 1
+  fi
+
   if [ -z ${u-x} ]
   then
     # if u is null: u=
@@ -110,20 +128,16 @@ docker_user() {
   fi
 }
 
-# mount home for directory given
-docker_mount_home() {
-  if ! [ -d "$HOME/$1" ]
-  then
-    mkdir $HOME/$1
-  fi
-
-  echo --mount type=bind,source=$HOME/$1,target=/home/$1,consistency=delegated
-}
-
 # if current directory is a home subdirectory, then mount home and set work dir to
 # the path.  This allows for directory traversal.
 #
 docker_workdir() {
+  if [ $1 ]
+  then
+    echo usage: docker_workdir 1>&2
+    exit 1
+  fi
+
   if [[ $PWD == $HOME* ]]
   then
     echo --mount type=bind,source=$HOME,target=/wd,consistency=delegated
@@ -137,6 +151,12 @@ docker_workdir() {
 # if current directory is a home subdirectory, then mount home and set work dir to
 # the path.  This allows for directory traversal.
 docker_home_workdir() {
+  if [ $1 ]
+  then
+    echo usage: docker_home_workdir 1>&2
+    exit 1
+  fi
+
   # mount home
   echo --env HOME=$HOME
   echo --mount type=bind,source=$HOME,target=$HOME,consistency=delegated
