@@ -1,3 +1,4 @@
+#! /bin/sh
 . docker.sh
 
-exec `docker hello-world` "$@"
+exec `docker hello-world`

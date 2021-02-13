@@ -1,62 +1,133 @@
-# standard docker call, pass image
+# source into your script
+# sh compatible
+
+# Construct docker command line
+#
+# environment variables used as parameters
+#
+# it=sh docker alpine -->  docker run -it --entrypoint sh --rm alpine
+#
+# e=^AWS_   --env (env | grep ^AWS_)
+# ep=bash   --entrypoint bash
+# i=        -i
+# t=        --tty
+# it=       --interactive --tty
+# it=bash   --interactive --tty --entrypoint bash
+# u=        --user
+
 docker() {
-  if [ $# -ne 1 ]
+  if ! [ $1 ]
   then
-    echo usage: docker image 1>&2
+    echo usage: docker image [arg1] [arg2] ... 1>&2
     exit 1
   fi
 
-  docker_run
-  docker_home_workdir
-  docker_image $1
+  # expand environment variables
+  docker_expand $1
+
+  shift
+
+  # return docker run command with any entrypoint, interactive and tty options
+  echo docker run --rm \
+    ${i+-i} \
+    ${t+-t} \
+    `docker_publish` \
+    ${u:+--user "$u"} \
+    ${m:+--mount "$m"} \
+    ${w:+-w "$w"} \
+    ${h:+--env HOME="$h"} \
+    `docker_env` \
+    ${ep:+--entrypoint "$ep"} \
+    $image${tag:+":$tag"} \
+    "$@"
 }
 
-# return docker run command with defaults and overrides for 
-# tty, interactive, entrypoint and publish (ports)
-docker_run() {
-  if [ $1 ]
+# expansion of environment variables
+# it=
+# m=
+docker_expand() {
+  IFS=':' read _image _tag << EOF 
+$1
+EOF
+
+  if ! [ $image ]
   then
-    echo usage: docker_run 1>&2
-    exit 1
+    image=$_image
+  fi
+  
+  if ! [ $tag ]
+  then
+    # check for tag override
+    f=${DOCKER_IMAGE-~/.docker_image}
+    if [ -f $f ]
+    then
+      while IFS=':' read _image _otag || [ "$_image" ]
+      do
+        if [ "$image" == "$_image" ]
+        then
+          tag=$_otag
+          break
+        fi
+      done < $f
+    fi
+
+    if ! [ $tag ]
+    then
+      tag=$_tag
+    fi
   fi
 
-  if ! [ -z ${ti+0} ] ||  ! [ -z ${it+0} ]
+  if ! [ -z ${hwm+0} ]
   then
-    # ti or it set (might be blank), expand to individual variables
-    i=
-    t=
+    case $PWD in
+    $HOME* );;
+    * )
+      echo "hwm requires current directory $PWD to start with $HOME" 1>&2
+      exit 1;;
+    esac
+
+    h=${h-$HOME}
+    w=${w-$PWD}
+    m=${m-"type=bind,source=$HOME,target=$HOME,consistency=delegated"}
   fi
 
   if [ -p 0 ]
   then
-    # ensure interactive if named pipe
+    # named pipe
+    #
+    # "xyz" | docker
     i=
-  fi
-
-  if ! [ -z ${bash+0} ]
-  then
-    # bash=
-    ep=bash
-    i=
-    t=
-  elif ! [ -z ${sh+0} ]
-  then
-    # sh=
-    ep=sh
-    i=
-    t=
   fi
 
   if ! [ -t 0 ]
   then
-    # if not in terminal, suppress tty
+    # not in terminal
+
+    if ! [ -z ${it+0} ]
+    then
+      echo it=$it requires terminal 1>&2
+      exit 1
+    fi
+
+    # suppress any terminal
     unset t
   fi
 
-  # return docker run command with any entrypoint, interactive and tty options
-  echo docker run --rm ${ep:+--entrypoint $ep} ${i+--interactive} ${t+--tty}
+  if ! [ -z ${ti+0} ]
+  then
+    it=$ti
+  fi
 
-  # add port publishing
+  if ! [ -z ${it+0} ]
+  then
+    # it set (might be blank), expand to individual variables
+    i=
+    t=
+    ep=${ep-$it}
+  fi
+}
+
+docker_publish() {
   IFS=','
   for port in $p
   do
@@ -73,101 +144,15 @@ docker_run() {
   done
 }
 
-# return docker image with any override tag or use tag provided
-docker_image() {
-  if [ $# -ne 1 ]
+# Add env grep'd from this environment
+docker_env() {
+  if ! [ $e ]
   then
-    echo usage: image image[:tag] 1>&2
-    exit 1
-  fi
-
-  IFS='@' read image tag <<< "$1"
-
-  # check for tag override
-  f=${DOCKER_IMAGE-~/.docker_image}
-  if [ -f $f ]
-  then
-    while IFS=':' read _image _tag || [ "$_image" ]
-    do
-      if [ "$image" == "$_image" ]
-      then
-        tag=$_tag
-        break
-      fi
-    done < $f
-  fi
-
-  # prepend a ':' if $tag set and not null, otherwise leave as null 
-  echo $image${tag:+":$tag"}
-}
-
-# add --user flag if UID is present
-docker_user() {
-  if [ $1 ]
-  then
-    echo usage: docker_user 1>&2
-    exit 1
-  fi
-
-  if [ -z ${u-x} ]
-  then
-    # if u is null: u=
-    return
-  fi
-  
-  if [ "$u" ]
-  then
-    echo --user $u
     return
   fi
 
-  if [ "$UID" ]
-  then
-    echo --user $UID${GROUPS+:$GROUPS}
-    return
-  fi
-}
-
-# if current directory is a home subdirectory, then mount home and set work dir to
-# the path.  This allows for directory traversal.
-#
-docker_workdir() {
-  if [ $1 ]
-  then
-    echo usage: docker_workdir 1>&2
-    exit 1
-  fi
-
-  if [[ $PWD == $HOME* ]]
-  then
-    echo --mount type=bind,source=$HOME,target=/wd,consistency=delegated
-    echo --workdir ${PWD/$HOME//wd} 
-  else
-    echo --mount type=bind,source=$PWD,target=/wd,consistency=delegated
-    echo --workdir /wd
-  fi
-}
-
-# if current directory is a home subdirectory, then mount home and set work dir to
-# the path.  This allows for directory traversal.
-docker_home_workdir() {
-  if [ $1 ]
-  then
-    echo usage: docker_home_workdir 1>&2
-    exit 1
-  fi
-
-  # mount home
-  echo --env HOME=$HOME
-  echo --mount type=bind,source=$HOME,target=$HOME,consistency=delegated
- 
-  if [[ $PWD == $HOME* ]]
-  then
-    # current directory has a base as current home
-    echo --workdir ${PWD}
-  else
-    # current directory is outside, mount separately
-    echo --mount type=bind,source=$PWD,target=/wd,consistency=delegated
-    echo --workdir /wd
-  fi
+  env | grep $e | while IFS= read -r line
+  do
+    echo --env "$line"
+  done
 }
