@@ -10,7 +10,7 @@ Typical usage with shmod:
 . shmod
 import dockcmd/sh@v0.0.3 docker.sh
 
-shmod_exec `docker_std hello-world` "$@"
+run `docker hello-world` "$@"
 ```
 
 ## Hello World

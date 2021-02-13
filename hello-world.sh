@@ -1,3 +1,3 @@
 . docker.sh
 
-exec `docker_std hello-world` "$@"
+exec `docker hello-world` "$@"

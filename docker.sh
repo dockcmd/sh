@@ -1,5 +1,11 @@
 # standard docker call, pass image
-docker_std() {
+docker() {
+  if [ $# -ne 1 ]
+  then
+    echo usage: docker image 1>&2
+    exit 1
+  fi
+
   docker_run
   docker_home_workdir
   docker_image $1
@@ -144,9 +150,4 @@ docker_home_workdir() {
     echo --mount type=bind,source=$PWD,target=/wd,consistency=delegated
     echo --workdir /wd
   fi
-}
-
-# add all environment variables grep'd with $1
-docker_env() {
-  echo --env-file <(env|grep ^$1)
 }
