@@ -1,3 +1,10 @@
+# standard docker call, pass image
+docker_std() {
+  docker_run
+  docker_home_workdir
+  docker_image $1
+}
+
 # return docker run command with defaults and overrides for 
 # tty, interactive, entrypoint and publish (ports)
 docker_run() {
@@ -14,18 +21,24 @@ docker_run() {
     i=
   fi
 
+  if ! [ -z ${bash+0} ]
+  then
+    # bash=
+    ep=bash
+    i=
+    t=
+  elif ! [ -z ${sh+0} ]
+  then
+    # sh=
+    ep=sh
+    i=
+    t=
+  fi
+
   if ! [ -t 0 ]
   then
     # if not in terminal, suppress tty
     unset t
-  fi
-
-  if ! [ -z ${bash+0} ]
-  then
-    # bash=
-    ep=/bin/bash
-    i=
-    t=
   fi
 
   # return docker run command with any entrypoint, interactive and tty options
@@ -58,7 +71,8 @@ docker_image() {
   then
     while IFS=':' read _image _tag || [ "$_image" ]
     do
-      if [ "$image" == "$_image" ]; then
+      if [ "$image" == "$_image" ]
+      then
         tag=$_tag
         break
       fi
@@ -132,21 +146,7 @@ docker_home_workdir() {
   fi
 }
 
-# if dryrun (dr) is not assigned, exec cmd, otherwise print cmd
-exec_or_dryrun() {
-  # if dr not set, just exec.  exec terminates script
-  [ -z ${dr+x} ] && exec "$@"
-
-  if [ "$dr" = l ]
-  then
-    # dr list in long format unescaped
-    for word in "$@"
-    do
-      echo $word \\
-    done
-  else
-    # dryrun set, print command escaped so it can be copied to run
-    printf "%q " $@
-    echo
-  fi
+# add all environment variables grep'd with $1
+docker_env() {
+  echo --env-file <(env|grep ^$1)
 }

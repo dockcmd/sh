@@ -8,14 +8,9 @@ Typical usage with shmod:
 
 ```bash
 . shmod
-import dockcmd/sh@v0.0.2 docker.sh
+import dockcmd/sh@v0.0.3 docker.sh
 
-exec_or_dryrun \
-  $(docker_run) \
-  $(docker_workdir) \
-  $(docker_publish) \
-  $(docker_image hello-world) \
-  "$@"
+shmod_exec `docker_std hello-world` "$@"
 ```
 
 ## Hello World
