@@ -1,5 +1,4 @@
-# source into your script
-# sh compatible
+#!/bin/sh
 
 # Construct docker command line
 #
@@ -14,8 +13,9 @@
 # it=       --interactive --tty
 # it=bash   --interactive --tty --entrypoint bash
 # u=        --user
+# v=        -v
 
-docker() {
+docker_run() {
   if ! [ $1 ]; then
     echo usage: docker image [arg1] [arg2] ... 1>&2
     exit 1
@@ -23,18 +23,20 @@ docker() {
 
   # expand environment variables
   docker_expand $1
-
   shift
 
   # return docker run command with any entrypoint, interactive and tty options
-  echo docker run --rm \
+  docker_exec \
+    docker run \
+    --rm \
     ${i+-i} \
     ${t+-t} \
     $(docker_publish) \
     ${u:+--user "$u"} \
+    ${v:+-v "$v"} \
     ${m:+--mount "$m"} \
     ${w:+-w "$w"} \
-    ${h:+--env HOME="$h"} \
+    ${eh:+-e HOME="$eh"} \
     $(docker_env) \
     ${ep:+--entrypoint "$ep"} \
     $image${tag:+":$tag"} \
@@ -70,7 +72,7 @@ EOF
     fi
   fi
 
-  if ! [ -z ${hwm+0} ]; then
+  if ! [ -z ${t9t+0} ]; then
     case $PWD in
     $HOME*) ;;
     *)
@@ -79,39 +81,28 @@ EOF
       ;;
     esac
 
-    h=${h-$HOME}
+    eh=${eh-$HOME}
+    v=${v-"$HOME:$HOME:delegated"}
     w=${w-$PWD}
-    m=${m-"type=bind,source=$HOME,target=$HOME,consistency=delegated"}
+  fi
+
+  if ! [ -z $ti+0} ]; then
+    t=
+    i=
+    if [ $ti ] && ! [ $ep ]; then
+      ep=$ti
+    fi
   fi
 
   if [ -p 0 ]; then
-    # named pipe
-    #
-    # "xyz" | docker
+    # named pipe, force interactive
     i=
   fi
 
   if ! [ -t 0 ]; then
-    # not in terminal
-
-    if ! [ -z ${it+0} ]; then
-      echo it=$it requires terminal 1>&2
-      exit 1
-    fi
-
-    # suppress any terminal
+    # the input device is not a TTY
+    # suppress docker TTY
     unset t
-  fi
-
-  if ! [ -z ${ti+0} ]; then
-    it=$ti
-  fi
-
-  if ! [ -z ${it+0} ]; then
-    # it set (might be blank), expand to individual variables
-    i=
-    t=
-    ep=${ep-$it}
   fi
 }
 
@@ -121,9 +112,9 @@ docker_publish() {
     if [ $port ]; then
       if [ $port -eq $port ] 2>/dev/null; then
         # $port is an integer
-        echo --publish $port:$port
+        echo "-p" "$port:$port"
       else
-        echo --publish $port
+        echo "-p" "$port"
       fi
     fi
   done
@@ -136,6 +127,34 @@ docker_env() {
   fi
 
   env | grep $e | while IFS= read -r line; do
-    echo --env "$line"
+    echo "-e" "$line"
   done
 }
+
+# if dryrun (dr) is not assigned, exec cmd, otherwise print cmd
+# will not return from this function
+docker_exec() {
+  ! [ $1 ] &&
+    exit 0
+
+  # if dr not set, just exec.  exec terminates script
+  [ -z ${dr+x} ] &&
+    exec "$@"
+
+  if [ "$dr" = l ]; then
+    # dr list in long format unescaped
+    for word in "$@"; do
+      echo $word \\
+    done
+    exit 0
+  fi
+
+  echo "$@"
+  exit 0
+}
+
+# shmod requires git
+if ! command -v git >/dev/null; then
+  echo "Error: git is required for shmod." 1>&2
+  exit 1
+fi
