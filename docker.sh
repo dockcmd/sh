@@ -86,7 +86,7 @@ EOF
     w=${w-$PWD}
   fi
 
-  if ! [ -z $ti+0} ]; then
+  if ! [ -z ${ti+0} ]; then
     t=
     i=
     if [ $ti ] && ! [ $ep ]; then
