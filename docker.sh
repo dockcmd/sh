@@ -10,8 +10,8 @@
 # ep=bash   --entrypoint bash
 # i=        -i
 # t=        --tty
-# it=       --interactive --tty
-# it=bash   --interactive --tty --entrypoint bash
+# ti=       --interactive --tty
+# ti=bash   --interactive --tty --entrypoint bash
 # u=        --user
 # v=        -v
 
@@ -76,7 +76,7 @@ EOF
     case $PWD in
     $HOME*) ;;
     *)
-      echo "hwm requires current directory $PWD to start with $HOME" 1>&2
+      echo "docker: transparent mode (t9t) requires current directory $PWD be in $HOME" 1>&2
       exit 1
       ;;
     esac
