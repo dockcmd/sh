@@ -1,6 +1,6 @@
 #!/bin/sh
 
-# Construct docker command line
+# Construct docker command, execute or print, and exit shell
 #
 # environment variables used as parameters
 #
@@ -16,31 +16,64 @@
 # v=        -v
 
 docker_run() {
-  if ! [ $1 ]; then
-    echo usage: docker image [arg1] [arg2] ... 1>&2
+  if ! [ "$1" ]; then
+    echo usage: docker_run image[:tag] [arg1] [arg2] ... 1>&2
     exit 1
   fi
 
-  # expand environment variables
-  docker_expand $1
+  # get image and tag and expand environment variables
+  docker_expand "$1"
   shift
 
-  # return docker run command with any entrypoint, interactive and tty options
-  docker_exec \
-    docker run \
-    --rm \
-    ${i+-i} \
-    ${t+-t} \
-    $(docker_publish) \
+  # build command in reverse order
+
+  # image and args
+  set -- "$image${tag:+:$tag}" "$@"
+
+  IFS=','
+  for port in $p; do
+    if [ $port ]; then
+      if [ $port -eq $port ] 2>/dev/null; then
+        # $port is an integer
+        set -- -p "$port:$port" "$@"
+      else
+        set -- -p "$port" "$@"
+      fi
+    fi
+  done
+  unset IFS
+
+  if [ "$e" ]; then
+    while read line; do
+      [ "$line" ] && set -- -e "$line" "$@"
+    done <<EOF
+$(env | grep -e "$e")
+EOF
+  fi
+
+  # standard flags
+  set -- docker run --rm ${i+-i} ${t+-t} \
     ${u:+--user "$u"} \
     ${v:+-v "$v"} \
     ${m:+--mount "$m"} \
     ${w:+-w "$w"} \
-    ${eh:+-e HOME="$eh"} \
-    $(docker_env) \
+    ${eh:+-e "HOME=$eh"} \
     ${ep:+--entrypoint "$ep"} \
-    $image${tag:+":$tag"} \
     "$@"
+
+  # if dr not set, just exec.  exec terminates script
+  [ -z "${dr+x}" ] && exec "$@"
+
+  if [ "$dr" = l ]; then
+    # dr list in long format unescaped
+    for word in "$@"; do
+      echo "$word \\"
+    done
+    exit 0
+  fi
+
+  echo "$@"
+  exit 0
 }
 
 # expansion of environment variables
@@ -51,11 +84,9 @@ docker_expand() {
 $1
 EOF
 
-  if ! [ $image ]; then
-    image=$_image
-  fi
+  image=${image-$_image}
 
-  if ! [ $tag ]; then
+  if ! [ "$tag" ]; then
     # check for tag override
     f=${DOCKER_IMAGE-~/.docker_image}
     if [ -f $f ]; then
@@ -67,12 +98,10 @@ EOF
       done <$f
     fi
 
-    if ! [ $tag ]; then
-      tag=$_tag
-    fi
+    tag=${tag-$_tag}
   fi
 
-  if ! [ -z ${t9t+0} ]; then
+  if [ -n "${t9t+x}" ]; then
     case $PWD in
     $HOME*) ;;
     *)
@@ -86,7 +115,7 @@ EOF
     w=${w-$PWD}
   fi
 
-  if ! [ -z ${ti+0} ]; then
+  if [ -n "${ti+x}" ]; then
     t=
     i=
     if [ $ti ] && ! [ $ep ]; then
@@ -105,56 +134,3 @@ EOF
     unset t
   fi
 }
-
-docker_publish() {
-  IFS=','
-  for port in $p; do
-    if [ $port ]; then
-      if [ $port -eq $port ] 2>/dev/null; then
-        # $port is an integer
-        echo "-p" "$port:$port"
-      else
-        echo "-p" "$port"
-      fi
-    fi
-  done
-}
-
-# Add env grep'd from this environment
-docker_env() {
-  if ! [ $e ]; then
-    return
-  fi
-
-  env | grep $e | while IFS= read -r line; do
-    echo "-e" "$line"
-  done
-}
-
-# if dryrun (dr) is not assigned, exec cmd, otherwise print cmd
-# will not return from this function
-docker_exec() {
-  ! [ $1 ] &&
-    exit 0
-
-  # if dr not set, just exec.  exec terminates script
-  [ -z ${dr+x} ] &&
-    exec "$@"
-
-  if [ "$dr" = l ]; then
-    # dr list in long format unescaped
-    for word in "$@"; do
-      echo $word \\
-    done
-    exit 0
-  fi
-
-  echo "$@"
-  exit 0
-}
-
-# shmod requires git
-if ! command -v git >/dev/null; then
-  echo "Error: git is required for shmod." 1>&2
-  exit 1
-fi
