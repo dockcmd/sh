@@ -1,8 +1,8 @@
-#!/bin/sh
+#!/bin/sh --posix
 
 # Construct docker command, execute or print, and exit shell
 #
-# environment variables used as parameters
+# Externally set environment variables to configure docker run:
 #
 # it=sh docker alpine -->  docker run -it --entrypoint sh --rm alpine
 #
@@ -14,6 +14,10 @@
 # ti=bash   --interactive --tty --entrypoint bash
 # u=        --user
 # v=        -v
+#
+
+# disable check for environment variable defined as most all set externally
+# shellcheck disable=SC2154
 
 docker_run() {
   if ! [ "$1" ]; then
@@ -25,15 +29,18 @@ docker_run() {
   docker_expand "$1"
   shift
 
-  # build command in reverse order
+  #
+  # have to preserve "$@" passed into docker_run as the arguments
+  #
+  # therefore, need to build command in reverse order
+  #
 
   # image and args
   set -- "$image${tag:+:$tag}" "$@"
 
-  IFS=','
   for port in $p; do
-    if [ $port ]; then
-      if [ $port -eq $port ] 2>/dev/null; then
+    if [ "$port" ]; then
+      if [ "$port" -eq "$port" ] 2>/dev/null; then
         # $port is an integer
         set -- -p "$port:$port" "$@"
       else
@@ -41,17 +48,15 @@ docker_run() {
       fi
     fi
   done
-  unset IFS
 
   if [ "$e" ]; then
-    while read line; do
-      [ "$line" ] && set -- -e "$line" "$@"
-    done <<EOF
-$(env | grep -e "$e")
-EOF
+    # shellcheck disable=SC2013 
+    for name in $(awk 'BEGIN{for(v in ENVIRON) print v}' | grep -E -e "^($e)"); do
+      set -- -e "$name=$(printenv -- "$name")" "$@"
+    done
   fi
 
-  # standard flags
+  # finally get to docker run with standard flags
   set -- docker run --rm ${i+-i} ${t+-t} \
     ${u:+--user "$u"} \
     ${v:+-v "$v"} \
@@ -62,9 +67,9 @@ EOF
     "$@"
 
   # if dr not set, just exec.  exec terminates script
-  [ -z "${dr+x}" ] && exec "$@"
+  ! [ "${ddr+x}" ] && exec "$@"
 
-  if [ "$dr" = l ]; then
+  if [ "$ddr" = l ]; then
     # dr list in long format unescaped
     for word in "$@"; do
       echo "$word \\"
@@ -80,7 +85,7 @@ EOF
 # it=
 # m=
 docker_expand() {
-  IFS=':' read _image _tag <<EOF
+  IFS=':' read -r _image _tag <<EOF
 $1
 EOF
 
@@ -88,14 +93,14 @@ EOF
 
   if ! [ "$tag" ]; then
     # check for tag override
-    f=${DOCKER_IMAGE-~/.docker_image}
-    if [ -f $f ]; then
-      while IFS=':' read _image _otag || [ "$_image" ]; do
-        if [ "$image" == "$_image" ]; then
+    f="${DOCKER_IMAGE-~/.docker_image}"
+    if [ -f "$f" ]; then
+      while IFS=':' read -r _image _otag || [ "$_image" ]; do
+        if [ "$image" = "$_image" ]; then
           tag=$_otag
           break
         fi
-      done <$f
+      done <"$f"
     fi
 
     tag=${tag-$_tag}
@@ -110,16 +115,16 @@ EOF
       ;;
     esac
 
-    eh=${eh-$HOME}
-    v=${v-"$HOME:$HOME:delegated"}
-    w=${w-$PWD}
+    eh="${eh-$HOME}"
+    v="${v-"$HOME:$HOME:delegated"}"
+    w="${w-$PWD}"
   fi
 
   if [ -n "${ti+x}" ]; then
     t=
     i=
-    if [ $ti ] && ! [ $ep ]; then
-      ep=$ti
+    if [ "$ti" ] && ! [ "$ep" ]; then
+      ep="$ti"
     fi
   fi
 
@@ -133,4 +138,14 @@ EOF
     # suppress docker TTY
     unset t
   fi
+}
+
+env_names() {
+  # this is a lot of work just to get valid names, should be easier, but multi-line environment variables
+  # make it tou
+  env | grep -oE -e "^[_A-Za-z][_A-Za-z0-9]*=" | grep -oE -e "^[_A-Za-z][_A-Za-z0-9]*" |
+    grep -E -e "^($1)" |
+    while read -r; do
+      printenv "$REPLY" 1>/dev/null && printf '%s\n' "$REPLY"
+    done
 }
