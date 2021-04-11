@@ -50,7 +50,7 @@ docker_run() {
   done
 
   if [ "$e" ]; then
-    # shellcheck disable=SC2013 
+    # shellcheck disable=SC2013
     for name in $(awk 'BEGIN{for(v in ENVIRON) print v}' | grep -E -e "^($e)"); do
       set -- -e "$name=$(printenv -- "$name")" "$@"
     done
@@ -67,7 +67,7 @@ docker_run() {
     "$@"
 
   # if dr not set, just exec.  exec terminates script
-  ! [ "${ddr+x}" ] && exec "$@"
+  ! [ "${ddr+_}" ] && exec "$@"
 
   if [ "$ddr" = l ]; then
     # dr list in long format unescaped
@@ -106,7 +106,7 @@ EOF
     tag=${tag-$_tag}
   fi
 
-  if [ -n "${t9t+x}" ]; then
+  if ! [ "$t9t" = - ] && [ "${t9t+_}" ]; then
     case $PWD in
     $HOME*) ;;
     *)
@@ -116,11 +116,11 @@ EOF
     esac
 
     eh="${eh-$HOME}"
-    v="${v-"$HOME:$HOME:delegated"}"
+    v="${v-$HOME:$HOME:delegated}"
     w="${w-$PWD}"
   fi
 
-  if [ -n "${ti+x}" ]; then
+  if [ -n "${ti+_}" ]; then
     t=
     i=
     if [ "$ti" ] && ! [ "$ep" ]; then
