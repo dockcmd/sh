@@ -69,41 +69,43 @@ docker_run() {
   # if dr not set, just exec.  exec terminates script
   ! [ "${ddr+_}" ] && exec "$@"
 
-  if [ "$ddr" = l ]; then
-    # dr list in long format unescaped
-    for word in "$@"; do
-      echo "$word \\"
-    done
-    exit 0
-  fi
+  xpn_escape "$1"
+  shift
+  for param; do
+    printf ' '
+    [ "$ddr" = l ] && printf '\\\n'
+    xpn_escape "$param"
+  done
+  printf "\n"
 
-  echo "$@"
   exit 0
+}
+
+xpn_escape() {
+  case $1 in
+  *[[:space:]\|\&\;\<\>\(\)\$\`\\\"\'*?[]* | ~*)
+    printf %s "$1" | sed "s/'/'\\\\''/g;1s/^/'/;\$s/\$/'/"
+    ;;
+  *)
+    printf %s "$1"
+    ;;
+  esac
 }
 
 # expansion of environment variables
 # it=
 # m=
 docker_expand() {
-  IFS=':' read -r _image _tag <<EOF
-$1
-EOF
-
-  image=${image-$_image}
+  image="${image-${1%:*}}"
 
   if ! [ "$tag" ]; then
-    # check for tag override
-    f="${DOCKER_IMAGE-~/.docker_image}"
-    if [ -f "$f" ]; then
-      while IFS=':' read -r _image _otag || [ "$_image" ]; do
-        if [ "$image" = "$_image" ]; then
-          tag=$_otag
-          break
-        fi
-      done <"$f"
+    # tag order -> externally supplied, docker_image file, parameter
+    f="${DOCKER_IMAGE-$HOME/.docker_image}"
+    if [ -f "$f" ] && imagetag="$(grep -m 1 -e '^[[:space:]]*'"$image:" "$f")"; then
+      tag="${imagetag##*:}"
+    else
+      case $1 in "*:*") tag="${1##*:}" ;; esac
     fi
-
-    tag=${tag-$_tag}
   fi
 
   if ! [ "$t9t" = - ] && [ "${t9t+_}" ]; then
