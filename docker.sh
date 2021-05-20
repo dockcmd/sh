@@ -104,7 +104,7 @@ docker_expand() {
     if [ -f "$f" ] && imagetag="$(grep -m 1 -e '^[[:space:]]*'"$image:" "$f")"; then
       tag="${imagetag##*:}"
     else
-      case $1 in "*:*") tag="${1##*:}" ;; esac
+      case $1 in *:*) tag="${1##*:}" ;; esac
     fi
   fi
 
