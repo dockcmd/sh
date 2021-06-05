@@ -1,4 +1,4 @@
 #! /bin/sh
 . docker.sh
 
-exec `docker hello-world`
+docker_run hello-world

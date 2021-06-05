@@ -14,20 +14,23 @@
 # ti=bash   --interactive --tty --entrypoint bash
 # u=        --user
 # v=        -v
-#
+# image=    image
 
 # disable check for environment variable defined as most all set externally
 # shellcheck disable=SC2154
 
 docker_run() {
   if ! [ "$1" ]; then
-    echo usage: docker_run image[:tag] [arg1] [arg2] ... 1>&2
+    echo usage: docker_run image [arg1] [arg2] ... 1>&2
     exit 1
   fi
 
-  # get image and tag and expand environment variables
-  docker_expand "$1"
+  # get any image override
+  docker_image "$1"
   shift
+
+  # expand environment variables
+  docker_expand
 
   #
   # have to preserve "$@" passed into docker_run as the arguments
@@ -36,7 +39,7 @@ docker_run() {
   #
 
   # image and args
-  set -- "$image${tag:+:$tag}" "$@"
+  set -- "$image" "$@"
 
   for port in $p; do
     if [ "$port" ]; then
@@ -60,6 +63,7 @@ docker_run() {
   set -- docker run --rm ${i+-i} ${t+-t} \
     ${u:+--user "$u"} \
     ${v:+-v "$v"} \
+    ${ds:+-v /var/run/docker.sock:/var/run/docker.sock} \
     ${m:+--mount "$m"} \
     ${w:+-w "$w"} \
     ${eh:+-e "HOME=$eh"} \
@@ -92,22 +96,30 @@ xpn_escape() {
   esac
 }
 
+docker_image() {
+  # image defintion order -> externally supplied environment variable, docker_image file, $1
+  [ "$image" ] && return
+
+  f="${DOCKER_IMAGE-$HOME/.docker_image}"
+  if [ -f "$f" ]; then
+    # image:tag
+    image="$(grep -m 1 -e '^[[:space:]]*'"${1%:*}:" "$f")" &&
+      return
+
+    # image=image:tag
+    __="$(grep -m 1 -e '^[[:space:]]*'"${1%:*}=" "$f")" &&
+      image="${__#*=}" &&
+      return
+  fi
+
+  # default to provided value
+  image="$1"
+}
+
 # expansion of environment variables
 # it=
 # m=
 docker_expand() {
-  image="${image-${1%:*}}"
-
-  if ! [ "$tag" ]; then
-    # tag order -> externally supplied, docker_image file, parameter
-    f="${DOCKER_IMAGE-$HOME/.docker_image}"
-    if [ -f "$f" ] && imagetag="$(grep -m 1 -e '^[[:space:]]*'"$image:" "$f")"; then
-      tag="${imagetag##*:}"
-    else
-      case $1 in *:*) tag="${1##*:}" ;; esac
-    fi
-  fi
-
   if ! [ "$t9t" = - ] && [ "${t9t+_}" ]; then
     case $PWD in
     $HOME*) ;;

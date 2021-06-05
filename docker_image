@@ -1,0 +1,4 @@
+# Docker image tags.  Generally follows "kustomize edit set image"
+alpine/helm:3.5.4
+node=node:12-alpine
+ubuntu=ubuntu:20.04
