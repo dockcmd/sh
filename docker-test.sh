@@ -4,6 +4,7 @@ import github.com/sageify/shert@v0.0.1 shert.sh
 
 . docker.sh
 
+# dry run for entire test and do image mapping
 export ddr="" DOCKER_IMAGE=docker_image
 
 shert_equals 'docker_run helm:3.5.4' "docker run --rm helm:3.5.4"

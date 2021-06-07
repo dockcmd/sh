@@ -1,23 +1,46 @@
-# Docker Shell Script Functions
+# Docker Command Shell Script Function
 
-Script to be included to add various docker shell script functions.
+Provides a *docker_run* shell script function to automate the construction and configuration of a *docker run* command. 
+
+Function is primarily used in the [misc-sh](https://github.com/dockcmd/misc-sh) shell scripts that enable programs via docker calls.
 
 ## Usage
 
 Typical usage with shmod:
 
-```bash
+```sh
+cat > ubuntu.sh <<_
 . shmod
-import dockcmd/sh@v0.0.3 docker.sh
+import dockcmd/sh@v0.0.6 docker.sh
 
-run `docker hello-world` "$@"
+docker_run hello-world "$@"
+_
+
+```
+
+## Configuration
+
+The docker run command is created via environment variables:
+
+```
+ddr=      signify dry run
+e=^AWS_   --env (env | grep ^AWS_)
+ep=bash   --entrypoint bash
+i=        -i
+t=        --tty
+ti=       --interactive --tty
+ti=bash   --interactive --tty --entrypoint bash
+u=        --user
+v=        -v
+image=    image
 ```
 
 ## Hello World
+To view the docker run command created instead of executing it, use *ddr=* before calling the script.
 
 ```bash
-dr=l ./hello-world.sh
-dr=l p=80 ./hello-world.sh
+ddr=l ./hello-world.sh
+ddr=l p=80,8080 ./hello-world.sh
 ```
 
 ## Test

@@ -153,13 +153,3 @@ docker_expand() {
     unset t
   fi
 }
-
-env_names() {
-  # this is a lot of work just to get valid names, should be easier, but multi-line environment variables
-  # make it tou
-  env | grep -oE -e "^[_A-Za-z][_A-Za-z0-9]*=" | grep -oE -e "^[_A-Za-z][_A-Za-z0-9]*" |
-    grep -E -e "^($1)" |
-    while read -r; do
-      printenv "$REPLY" 1>/dev/null && printf '%s\n' "$REPLY"
-    done
-}
